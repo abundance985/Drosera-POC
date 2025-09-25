@@ -1,0 +1,10 @@
+# drosera.toml
+[trap]
+name = "DroseraHoneypotTrap"
+description = "A Drosera-compatible honeypot trap that monitors attacker addresses and triggers when a new attacker is flagged."
+contract = "contracts/DroseraHoneypotTrap.sol"
+class = "DroseraHoneypotTrap"
+
+[config]
+network = "sepolia"         # or "anvil" if running locally
+sample_size = 10            # number of block snapshots to simulate
