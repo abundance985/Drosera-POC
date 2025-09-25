@@ -1,141 +1,136 @@
-This repository contains two related smart contracts:
+# 🍯 Honeypot Trap Smart Contracts
 
-1. **HoneypotTrap.sol** – the original Hardhat proof-of-concept honeypot contract.  
-2. **DroseraHoneypotTrap.sol** – the updated, Drosera-compliant version that implements the \`ITrap\` interface, making it usable inside Drosera’s shadow-fork analysis.
+This repository contains two related **honeypot trap smart contracts** designed to simulate and detect a fake withdrawal vulnerability, focusing on integration with the **Drosera** monitoring system.
 
----
+| Contract | Purpose |
+| :--- | :--- |
+| **`HoneypotTrap.sol`** | The original **Hardhat proof-of-concept (PoC)** honeypot. |
+| **`DroseraHoneypotTrap.sol`** | The **Drosera-compliant** version, implementing the `ITrap` interface for shadow-fork analysis. |
 
-## ✨ Concept
+-----
 
-The HoneypotTrap simulates a **fake withdraw vulnerability**:
+## ✨ Concept: The Fake Withdraw Vulnerability
 
-- Attackers calling \`withdraw()\` are flagged and recorded on-chain.  
-- The contract emits a \`TrapTriggered\` event.  
-- The Drosera-compliant trap exposes \`collect()\` and \`shouldRespond()\` so Drosera nodes can decide when to trigger based on state changes (e.g., when a new attacker is flagged).
+The trap simulates a **fake withdraw vulnerability** to catch would-be attackers:
 
----
+  - An attacker calls the `withdraw()` function, believing they can drain funds.
+  - The contract flags the caller as an attacker and records their address on-chain.
+  - A `TrapTriggered` event is emitted.
+  - The Drosera-compliant version exposes **`collect()`** and **`shouldRespond()`** methods, allowing Drosera nodes to monitor state changes (like a new attacker being flagged) and decide when to trigger a response.
+
+-----
 
 ## 📂 Project Structure
 
-\`\`\`
+This project follows a standard Hardhat structure, with an added configuration file for Drosera.
+
+```
 contracts/
-HoneypotTrap.sol # Original PoC (Hardhat)
-DroseraHoneypotTrap.sol # Drosera-compliant trap (implements ITrap)
+├── HoneypotTrap.sol           # Original PoC (Hardhat)
+└── DroseraHoneypotTrap.sol    # Drosera-compliant trap (implements ITrap)
 
 scripts/
-deploy.js # Hardhat deploy script (Sepolia)
-test.js 
+├── deploy.js                  # Hardhat deploy script (Sepolia)
+└── test.js                    # Executes local tests
 
 test/
-honeypot.test.js # Local tests
+└── honeypot.test.js           # Local Hardhat tests
 
-drosera.toml # Drosera trap descriptor
-.env # Example env file
+drosera.toml                   # Drosera trap descriptor
+.env.example
 hardhat.config.js
 package.json
-README.md # This file
-\`\`\`
+```
 
----
+-----
 
-## ⚙️ Usage (PoC with Hardhat)
+## ⚙️ Local Usage & Testing (Hardhat PoC)
 
-1. **Install dependencies**
-\`\`\`bash
+### 1\. Setup
+
+Start by installing dependencies and configuring your environment.
+
+```bash
+# Install dependencies
 npm install
-\`\`\`
 
-2. **Set up environment**  
-Create a \`.env\` file from \`.env.example\`:
-\`\`\`ini
-SEPOLIA_RPC=https://eth-sepolia.g.alchemy.com/v2/<YOUR_KEY>
-PRIVATE_KEY=0x<YOUR_PRIVATE_KEY>
-\`\`\`
+# Create a .env file from .env.example with your keys
+# SEPOLIA_RPC=...
+# PRIVATE_KEY=...
+```
 
-3. **Compile contracts**
-\`\`\`bash
+### 2\. Compile and Test
+
+You can run both the PoC and the Drosera-compliant contract tests locally using Hardhat.
+
+```bash
+# Compile contracts
 npx hardhat compile
-\`\`\`
 
-4. **Run local tests**
-\`\`\`bash
+# Run local tests (both PoC and Drosera-compliant)
 npm test
-\`\`\`
+```
 
-5. **Deploy to Sepolia**
-\`\`\`bash
-npm run deploy:sepolia
-\`\`\`
+### 3\. Test Examples
 
----
+#### PoC Test (`HoneypotTrap.sol`)
 
-## 🧪 Tests
+This test ensures an attacker is flagged when they call `withdraw()`.
 
-### PoC test (\`HoneypotTrap.sol\`)
-
-\`\`\`js
+```javascript
 // test/honeypot.test.js
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
 
-describe("HoneypotTrap", function () {
+// ... imports and describe block
+
   it("flags an attacker when withdraw is called", async function () {
-    const [owner, attacker] = await ethers.getSigners();
-    const Honeypot = await ethers.getContractFactory("HoneypotTrap");
-    const trap = await Honeypot.deploy();
-    await trap.waitForDeployment();
-
+    // ... deployment
     await trap.connect(attacker).withdraw();
     expect(await trap.attackers(attacker.address)).to.equal(true);
   });
-});
-\`\`\`
+```
 
-### Drosera-compliant test (\`DroseraHoneypotTrap.sol\`)
+#### Drosera-Compliant Test (`DroseraHoneypotTrap.sol`)
 
-\`\`\`js
+This test verifies the `collect`/`shouldRespond` flow works correctly by checking the state before and after a withdrawal attempt.
+
+```javascript
 // test/droseraHoneypot.test.js
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
 
-describe("DroseraHoneypotTrap", function () {
+// ... imports and describe block
+
   it("collect/shouldRespond flow works", async function () {
-    const [owner, attacker] = await ethers.getSigners();
-    const Factory = await ethers.getContractFactory("DroseraHoneypotTrap");
-    const trap = await Factory.deploy();
-    await trap.waitForDeployment();
-
+    // ... deployment
     const snap0 = await trap.collect();
     await trap.connect(attacker).withdraw();
     const snap1 = await trap.collect();
 
     const res = await trap.shouldRespond([snap0, snap1]);
-    expect(res[0]).to.equal(true); // should trigger
+    expect(res[0]).to.equal(true); // Should trigger a response
   });
-});
-\`\`\`
+```
 
-Run:
-\`\`\`bash
-npm test
-\`\`\`
-
----
+-----
 
 ## 🔗 Drosera Integration
 
-The Drosera-compliant trap implements:
+The core value of this repository is the **`DroseraHoneypotTrap.sol`**, which adheres to the `ITrap` interface for integration with the Drosera monitoring network.
 
-\`\`\`solidity
+### 1\. ITrap Interface
+
+The Drosera-compliant contract implements:
+
+```solidity
 interface ITrap {
     function collect() external view returns (bytes memory);
     function shouldRespond(bytes[] calldata data) external pure returns (bool, bytes memory);
 }
-\`\`\`
+```
 
-### \`drosera.toml\`
+### 2\. `drosera.toml` Configuration
 
-\`\`\`toml
+This file defines how the trap is deployed and monitored by the Drosera system.
+
+```toml
 [trap]
 name = "DroseraHoneypotTrap"
 description = "Honeypot trap that triggers when attackerCount increases"
@@ -145,53 +140,53 @@ class = "DroseraHoneypotTrap"
 [config]
 network = "sepolia"
 sample_size = 3
-\`\`\`
+```
 
-### Run with Drosera CLI
+### 3\. Run with Drosera CLI
 
-\`\`\`bash
-# Install CLI (example, may differ depending on docs)
+If you have the Drosera CLI installed, you can run the trap descriptor locally or against a Sepolia fork:
+
+```bash
+# Install CLI (if needed)
 cargo install drosera-cli
 
-# Local shadow-fork run
+# Run against a local shadow-fork
 drosera run
 
-# Or against Sepolia fork
+# Run against a Sepolia fork
 drosera run --network sepolia
-\`\`\`
+```
 
-Expected output (example):
-\`\`\`
+**Expected Output (Example):**
+
+```
 ✅ Trap DroseraHoneypotTrap initialized
 📡 Collecting state...
 ⚡ shouldRespond() => true (triggered)
-\`\`\`
+```
 
----
+-----
 
 ## 🚀 Deployment
 
-Latest Sepolia deployment (PoC):
-\`\`\`
-0x4Ba8eca8966409AD866c82A78DeBD295b520720a
-https://sepolia.etherscan.io/address/0x4Ba8eca8966409AD866c82A78DeBD295b520720a
-\`\`\`
+### Hardhat PoC Deployment
 
+The PoC version can be deployed to Sepolia using the Hardhat script:
+
+```bash
+npm run deploy:sepolia
+```
+
+**Latest Sepolia Deployment (PoC):**
+`0x4Ba8eca8966409AD866c82A78DeBD295b520720a`
+[View on Etherscan](https://sepolia.etherscan.io/address/0x4Ba8eca8966409AD866c82A78DeBD295b520720a)
+
+-----
 
 ## ⚠️ Notes & Ethics
 
-- This trap is for **research and testing on testnets only**.  
-- Do **not** trick real users into interacting with honeypots.  
-- Keep private keys and \`.env\` files safe.  
-- Drosera nodes will ignore local JS scripts; only the Drosera-compliant trap is relevant in production.  
+  - This repository is for **research and testing on testnets only**.
+  - Do **not** use this or similar contracts to trick or defraud real users.
+  - The Drosera nodes will only interact with the `DroseraHoneypotTrap.sol` contract; local JS scripts are for validation only.
 
----
-
-## ✅ Summary
-
-- \`HoneypotTrap.sol\`: simple PoC with Hardhat.  
-- \`DroseraHoneypotTrap.sol\`: Drosera-ready trap implementing \`ITrap\`.  
-- \`drosera.toml\`: defines how the trap is run in Drosera.  
-- Local validation with Hardhat, full integration tested via \`drosera run\`.  
-
----.
+-----
